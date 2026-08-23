@@ -34,21 +34,21 @@ jobs:
     - name: Create-DB
       run: docker compose up -d
 
-    - name: Debug - Check containers
-      run: |
-        echo "=== Containers ==="
-        docker compose ps -a
-        echo "=== Logs do Postgres ==="
-        docker compose logs postgres
+    # - name: Debug - Check containers
+    #   run: |
+    #     echo "=== Containers ==="
+    #     docker compose ps -a
+    #     echo "=== Logs do Postgres ==="
+    #     docker compose logs postgres
 
-    - name: Wait for Postgres
-      run: |
-        sudo apt-get update && sudo apt-get install -y postgresql-client
-        for i in {1..30}; do
-          pg_isready -h localhost -p 5432 -U root && break
-          echo "Aguardando o Postgres subir... tentativa $i"
-          sleep 2
-        done
+    # - name: Wait for Postgres
+    #   run: |
+    #     sudo apt-get update && sudo apt-get install -y postgresql-client
+    #     for i in {1..30}; do
+    #       pg_isready -h localhost -p 5432 -U root && break
+    #       echo "Aguardando o Postgres subir... tentativa $i"
+    #       sleep 2
+    #     done
 
     - name: Test
       run: go test -v main_test.go 
