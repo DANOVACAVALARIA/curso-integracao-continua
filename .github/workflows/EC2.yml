@@ -24,7 +24,7 @@ jobs:
             REMOTE_USER: ${{ secrets.REMOTE_USER }}
             TARGET: /home/${{ secrets.REMOTE_USER }}
             EXCLUDE: "postgres-data"
-        
+
         - name: executing remote ssh commands using password
           uses: appleboy/ssh-action@master
           with:
@@ -33,11 +33,125 @@ jobs:
             key: ${{ secrets.SSH_PRIVATE_KEY }}
             port: 22
             script: |
+              # Garante que o Postgres de produção está rodando
+              if [ ! "$(docker ps -q -f name=postgres-prod)" ]; then
+                if [ "$(docker ps -aq -f status=exited -f name=postgres-prod)" ]; then
+                  echo "Container postgres-prod parado. Iniciando..."
+                  docker start postgres-prod
+                else
+                  echo "Container postgres-prod não existe. Criando..."
+                  docker run -d \
+                    --name postgres-prod \
+                    --restart unless-stopped \
+                    -e POSTGRES_USER=${{ secrets.DBUSER }} \
+                    -e POSTGRES_PASSWORD=${{ secrets.DBPASSWORD }} \
+                    -e POSTGRES_DB=${{ secrets.DBNAME }} \
+                    -p ${{ secrets.DBPORT }}:5432 \
+                    -v postgres-data:/var/lib/postgresql/data \
+                    postgres:15
+                fi
+                echo "Aguardando o Postgres ficar pronto..."
+                for i in {1..15}; do
+                  docker exec postgres-prod pg_isready -U ${{ secrets.DBUSER }} && break
+                  sleep 2
+                done
+              else
+                echo "Container postgres-prod já está rodando."
+              fi
+
+              # Variáveis de ambiente da aplicação
               export HOST=${{ secrets.DBHOST }}
               export USER=${{ secrets.DBUSER }}
               export PASSWORD=${{ secrets.DBPASSWORD }}
               export DBNAME=${{ secrets.DBNAME }}
               export DBPORT=${{ secrets.DBPORT }}
               export PORT=8000
+
+              # Encerra qualquer instância anterior da aplicação
+              pkill -f './main' || true
+              sleep 1
+
+              # Sobe a nova versão
               chmod +x main
-              nohup ./main > nohup.out 2> nohup.err < /dev/null & 
+              nohup ./main > nohup.out 2> nohup.err < /dev/null &
+              sleep 2
+
+              # Confirma que subiu
+              if ! ps aux | grep -v grep | grep -q './main'; then
+                echo "ERRO: a aplicação não iniciou. Confira nohup.err"
+                cat nohup.err
+                exit 1
+              fi
+              echo "Aplicação iniciada com sucesso."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# name: Entrega continua
+
+# on:
+#   workflow_call:
+
+# jobs:
+
+#     EC2:
+#         runs-on: ubuntu-latest
+#         steps:
+#         - uses: actions/checkout@v3
+
+#         - name: Download a Build Artifact
+#           uses: actions/download-artifact@v4
+#           with:
+#         # Artifact name
+#             name: programa
+
+#         - name: Deploy to Staging server
+#           uses: easingthemes/ssh-deploy@main
+#           env:
+#             SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+#             REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+#             REMOTE_USER: ${{ secrets.REMOTE_USER }}
+#             TARGET: /home/${{ secrets.REMOTE_USER }}
+#             EXCLUDE: "postgres-data"
+        
+#         - name: executing remote ssh commands using password
+#           uses: appleboy/ssh-action@master
+#           with:
+#             host: ${{ secrets.REMOTE_HOST }}
+#             username: ${{ secrets.REMOTE_USER }}
+#             key: ${{ secrets.SSH_PRIVATE_KEY }}
+#             port: 22
+#             script: |
+#               export HOST=${{ secrets.DBHOST }}
+#               export USER=${{ secrets.DBUSER }}
+#               export PASSWORD=${{ secrets.DBPASSWORD }}
+#               export DBNAME=${{ secrets.DBNAME }}
+#               export DBPORT=${{ secrets.DBPORT }}
+#               export PORT=8000
+#               chmod +x main
+#               nohup ./main > nohup.out 2> nohup.err < /dev/null & 
