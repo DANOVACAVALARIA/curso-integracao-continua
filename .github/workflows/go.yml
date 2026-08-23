@@ -34,12 +34,19 @@ jobs:
     - name: Create-DB
       run: docker compose up -d
 
-    - name: Wait for Postgres healthy
+    - name: Debug - Check containers
       run: |
+        echo "=== Containers ==="
+        docker compose ps -a
+        echo "=== Logs do Postgres ==="
+        docker compose logs postgres
+
+    - name: Wait for Postgres
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
         for i in {1..30}; do
-          status=$(docker inspect --format='{{.State.Health.Status}}' $(docker compose ps -q postgres))
-          echo "Status: $status"
-          [ "$status" == "healthy" ] && break
+          pg_isready -h localhost -p 5432 -U root && break
+          echo "Aguardando o Postgres subir... tentativa $i"
           sleep 2
         done
 
