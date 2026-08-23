@@ -67,17 +67,18 @@ jobs:
               export DBPORT=${{ secrets.DBPORT }}
               export PORT=8000
 
-              # Encerra qualquer instância anterior da aplicação
-              pkill -f './main' || true
+              # Encerra qualquer instância anterior da aplicação (pelo nome exato do processo)
+              pkill -x main || true
               sleep 1
 
               # Sobe a nova versão
               chmod +x main
               nohup ./main > nohup.out 2> nohup.err < /dev/null &
+              disown
               sleep 2
 
               # Confirma que subiu
-              if ! ps aux | grep -v grep | grep -q './main'; then
+              if ! pgrep -x main > /dev/null; then
                 echo "ERRO: a aplicação não iniciou. Confira nohup.err"
                 cat nohup.err
                 exit 1
