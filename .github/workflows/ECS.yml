@@ -32,6 +32,7 @@ jobs:
             DBNAME=${{ secrets.DBNAME }}
             DBPORT=${{ secrets.DBPORT }}
             PORT=8000
+            SSLMODE=require
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v2
